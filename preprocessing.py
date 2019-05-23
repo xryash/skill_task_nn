@@ -41,6 +41,7 @@ def _mean(data):
 
 
 def _get_common_columns():
+    """Return intersection of columns without zero columns"""
     train_data = pd.read_csv(TRAIN_DATA, sep=',')
     test_data = pd.read_csv(SUBM_DATA, sep=',')
 
@@ -59,9 +60,10 @@ def _load_train_data():
     """Load data from csv file"""
     train_data = pd.read_csv(TRAIN_DATA, sep=',')
     y_train = train_data.y.values
-    train_data = train_data.drop('sample_id', 1)
-    train_data = train_data.drop('y', 1)
-    train_data = train_data.loc[:, (train_data != 0).any(axis=0)]
+
+    cols = _get_common_columns()
+
+    train_data = train_data[cols]
 
     mean_val = _mean(train_data)
     max_val = _max(train_data)
@@ -81,8 +83,9 @@ def _load_subm_data():
     test_data = pd.read_csv(SUBM_DATA, sep=',')
     ids = test_data.sample_id.values
 
-    test_data = test_data.drop('sample_id', 1)
-    test_data = test_data.loc[:, (test_data != 0).any(axis=0)]
+    cols = _get_common_columns()
+
+    test_data = test_data[cols]
 
     mean_val = _mean(test_data)
     max_val = _max(test_data)
@@ -150,8 +153,8 @@ def train_prep(test_numb=200):
     """Get preprocessed train data"""
     if not (os.path.exists(PREP_TRAIN_DATA)):
         x_train, y_train = _load_train_data()
-        # pca = _pca(1024)
-        # x_train = pca.transform(x_train)
+        pca = _pca(1024)
+        x_train = pca.transform(x_train)
         x_train = _normalize(x_train)
         y_train = np.array([y_train]).transpose(1, 0)
 
@@ -178,8 +181,8 @@ def test_prepr():
     if not (os.path.exists(PREP_SUBM_DATA)):
         x_test, ids = _load_subm_data()
         print(x_test.shape)
-        # pca = _pca(1024)
-        # x_test = pca.transform(x_test)
+        pca = _pca(1024)
+        x_test = pca.transform(x_test)
         x_test = _normalize(x_test)
 
         _save(x_test, ids, PREP_SUBM_DATA)
@@ -193,3 +196,5 @@ def test_prepr():
     print([i.shape for i in [x_test, ids]])
 
     return x_test, ids
+
+

@@ -1,100 +1,77 @@
 import tensorflow as tf
 
-from net import net
+from net import get_networks_options
+from oop import NeuralNet
+from preprocessing import train_prep, val_batch
 from utils import loss_plot, accuracy_plot
-from preprocessing import train_prepr
+
+MODELS_DIR = 'models/'
+PLOTS_DIR = 'plots/'
+NAME_PREFIX = 'model_'
 
 
-def train(epochs, batch_size, learning_rate, model_replica_path, dropout_rate):
+def train(options, features_count, labels_count, batch_size, validation_numb, x, y):
+    for option in options:
+        if option['skip']:
+            continue
 
+        nn_numb = option['number']
+        epochs = option['epochs']
+        learning_rate = option['learning_rate']
+        dropout_rate = option['dropout_rate']
 
-    # init dropout params
-    train_dropout_rate = dropout_rate
-    test_dropout_rate = 0.0
+        print('Neural network number' + str(nn_numb) + '\n')
 
-    # remove previous weights, bias, inputs, etc..
-    tf.reset_default_graph()
+        x_train, y_train, x_val, y_val = val_batch(x, y, validation_numb, seed=nn_numb)
 
-    # init gpu device
-    DEVICE = '/device:GPU:0'
+        # remove previous weights, bias, inputs, etc..
+        tf.reset_default_graph()
 
-    features_count = 1612
-    labels_count = 1
+        with tf.Graph().as_default() as graph:
+            init = tf.global_variables_initializer()
+            network = NeuralNet(dropout_rate, features_count, labels_count, epochs, batch_size, learning_rate)
 
-    # load data
-    x_train, y_train, x_val, y_val = train_prepr(200)
+        with tf.Session(graph=graph) as session:
+            session.run(init)
+            with tf.device('/device:GPU:0'):
+                print('Training....\n')
+                train_loss, test_loss, train_accuracy, test_accuracy = network.training(x_train, y_train, x_val, y_val)
 
-    x = tf.placeholder(tf.float32, shape=(None, features_count), name='x')
-    y = tf.placeholder(tf.float32, shape=(None, labels_count), name='y')
-    dropout_rate = tf.placeholder(tf.float32, name='dropout_rate')
+            print('Training complete\n')
 
-    with tf.device(DEVICE):
+            model_path = MODELS_DIR + str(nn_numb) + '/' + NAME_PREFIX + str(nn_numb)
+            loss_name_plot = 'loss_' + str(nn_numb) + '.png'
+            accuracy_name_plot = 'accuracy__' + str(nn_numb) + '.png'
 
-        # init model
-        model = net(x, dropout_rate=dropout_rate)
+            print('Saving plots....\n')
 
-        # init optimization function
-        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=model)
-        cost = tf.reduce_mean(cross_entropy)
-        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+            # save plots
+            accuracy_plot(train_accuracy, test_accuracy, PLOTS_DIR + accuracy_name_plot)
+            loss_plot(train_loss, test_loss, PLOTS_DIR + loss_name_plot)
 
-        # accuracy function
-        predicted = tf.nn.sigmoid(model)
-        correct_prediction = tf.equal(tf.round(predicted), y)
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            print('Saving plots complete\n')
 
-        # create tensorflow session
-        with tf.Session() as session:
-            session.run(tf.global_variables_initializer())
-            train_loss, test_loss, train_accuracy, test_accuracy = [], [], [], []
+            print('Saving model....\n')
 
-            print('Training....')
-            for i in range(epochs):
-                print('Epoch {} :'.format(i + 1))
-                for batch in range(len(x_train) // batch_size):
-                    # batching data
-                    batch_x = x_train[batch * batch_size:min((batch + 1) * batch_size, len(x_train))]
-                    batch_y = y_train[batch * batch_size:min((batch + 1) * batch_size, len(y_train))]
+            network.save_model(model_path)
+            print('Saving model complete \n')
 
-                    # start training
-                    session.run(optimizer, feed_dict={x: batch_x,
-                                                      y: batch_y,
-                                                      dropout_rate: train_dropout_rate})
-
-                    # compute metrics
-                    train_loss_batch, train_accuracy_batch = session.run([cost, accuracy], feed_dict={x: batch_x,
-                                                                                                      y: batch_y,
-                                                                                                      dropout_rate: train_dropout_rate})
-
-                    print(
-                        'Batch range:{} - {}  Loss: {:>10.4f}  Accuracy: {:.6f}'.format(batch * batch_size,
-                                                                                        min((batch + 1) * batch_size,
-                                                                                            len(x_train)),
-                                                                                        train_loss_batch,
-                                                                                        train_accuracy_batch))
-
-                test_accuracy_batch, test_loss_batch = session.run([accuracy, cost], feed_dict={x: x_val,
-                                                                                                y: y_val,
-                                                                                                dropout_rate: test_dropout_rate})
-
-                print(
-                    'Epoch {} finished, Loss: {:>10.4f} Validation Accuracy: {:.6f}'.format((i + 1), test_loss_batch,
-                                                                                            test_accuracy_batch))
-
-                train_loss.append(train_loss_batch)
-                test_loss.append(test_loss_batch)
-                train_accuracy.append(train_accuracy_batch)
-                test_accuracy.append(test_accuracy_batch)
-
-            # draw plots
-            loss_plot(train_loss, test_loss)
-            accuracy_plot(train_accuracy, test_accuracy)
+    print('Training complete')
 
 
 if __name__ == "__main__":
-    epochs = 100
-    batch_size = 8
-    learning_rate = 0.003
-    model_replica_path = 'tmp/model.ckpt'
-    dropout_rate = 0.4
-    train(epochs, batch_size, learning_rate, model_replica_path, dropout_rate)
+    VALIDATION_NUMB = 100
+    TEST_NUMB = 100
+    BATCH_SIZE = 32
+
+    # load data
+    x_train, y_train, x_test, y_test = train_prep(TEST_NUMB)
+
+    features_count = x_train.shape[1]
+    labels_count = y_train.shape[1]
+
+    options = get_networks_options()
+
+    train(options, features_count, labels_count, BATCH_SIZE, VALIDATION_NUMB, x_train, y_train)
+
+
