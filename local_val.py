@@ -12,21 +12,22 @@ NAME_PREFIX = 'model_'
 
 
 def local_val(options, x_test, y_test):
+    """Local validation function"""
     results = []
     for option in options:
-        # if option['skip']:
-        #    continue
-
         nn_number = option['number']
 
         model_path = MODELS_DIR + str(nn_number) + '/' + NAME_PREFIX + str(nn_number)
 
+        # start tf session
         with tf.Session() as session:
-
-            # Load the saved meta graph and restore variables
+            # load the saved meta graph and restore variables
             saver = tf.train.import_meta_graph("{}.meta".format(model_path))
 
+            # restore model
             saver.restore(session, model_path)
+
+            # do predictions with gpu device
             with tf.device('/device:GPU:0'):
                 predictions, test_loss, test_accuracy = NeuralNet.local_val(x_test, y_test)
 
@@ -36,21 +37,24 @@ def local_val(options, x_test, y_test):
         print('Auc: {:.4f}'.format(roc_auc_score(y_test, predictions)))
 
         results.append(predictions)
+
+    # compute mean values of the array of all predictions
     results = np.array(results)
     results = np.mean(results, axis=0)
 
-    acc = accuracy_score(y_test, np.round(results))
-    print(acc)
-
-    auc = roc_auc_score(y_test, results)
-    print(auc)
+    # compute and print metrics
+    ens_acc = accuracy_score(y_test, np.round(results))
+    ens_auc = roc_auc_score(y_test, results)
+    print('Ensemble: ')
+    print('Accuracy: {:.2f}'.format(ens_acc))
+    print('Auc: {:.4f}'.format(ens_auc))
 
 
 if __name__ == "__main__":
-
     # load data
     x_train, y_train, x_test, y_test = train_prep()
 
+    # networks hyperparams
     options = get_networks_options()
 
     local_val(options, x_test, y_test)
