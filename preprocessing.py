@@ -12,6 +12,8 @@ PREP_TRAIN_DATA = 'data/prep_train'
 PREP_TEST_DATA = 'data/prep_test'
 PREP_SUBM_DATA = 'data/prep_subm_test'
 
+N_COMPONENTS = 256
+
 
 def _max(data):
     """Return average max value without nan and inf"""
@@ -41,7 +43,7 @@ def _mean(data):
 
 
 def _get_common_columns():
-    """Return intersection of columns without zero columns"""
+    """Return columns without zeros"""
     train_data = pd.read_csv(TRAIN_DATA, sep=',')
     test_data = pd.read_csv(SUBM_DATA, sep=',')
 
@@ -49,10 +51,15 @@ def _get_common_columns():
     train_data = train_data.drop('y', 1)
     test_data = test_data.drop('sample_id', 1)
 
+    # if all elements in column are zero, then skip it
     train_data = train_data.loc[:, (train_data != 0).any(axis=0)]
     test_data = test_data.loc[:, (test_data != 0).any(axis=0)]
 
-    columns = np.intersect1d(train_data.columns, test_data.columns)
+    # find count of actual features
+    if len(train_data.columns) > len(test_data.columns):
+        columns = train_data.columns
+    else:
+        columns = test_data.columns
     return columns
 
 
@@ -61,14 +68,15 @@ def _load_train_data():
     train_data = pd.read_csv(TRAIN_DATA, sep=',')
     y_train = train_data.y.values
 
+    # get actual features
     cols = _get_common_columns()
-
     train_data = train_data[cols]
 
     mean_val = _mean(train_data)
     max_val = _max(train_data)
     min_val = _min(train_data)
 
+    # replace nan and inf with max, min and mean
     train_data = train_data.replace([np.inf], max_val)
     train_data = train_data.replace([-np.inf], min_val)
     train_data = train_data.replace([np.nan], mean_val)
@@ -83,6 +91,7 @@ def _load_subm_data():
     test_data = pd.read_csv(SUBM_DATA, sep=',')
     ids = test_data.sample_id.values
 
+    # get actual features
     cols = _get_common_columns()
 
     test_data = test_data[cols]
@@ -91,6 +100,7 @@ def _load_subm_data():
     max_val = _max(test_data)
     min_val = _min(test_data)
 
+    # replace nan and inf with max, min and mean
     test_data = test_data.replace([np.inf], max_val)
     test_data = test_data.replace([-np.inf], min_val)
     test_data = test_data.replace([np.nan], mean_val)
@@ -119,21 +129,27 @@ def _normalize(x):
 
 
 def _pca(n_components):
+    """Reduce data dimension"""
     x, _ = _load_train_data()
     pca = PCA(n_components=n_components).fit(x)
     return pca
 
 
 def val_batch(x, y, validation_numb, seed):
+    """According to seed split data on train and val datasets"""
     x_train, y_train = [], []
     x_val, y_val = [], []
 
+    # compute number of batches
     batch_count = len(x) // validation_numb
+
     while seed > batch_count:
         seed = int(seed / 2)
     for batch_index in range(len(x) // validation_numb):
+        # split x, y batches
         batch_x = x[batch_index * validation_numb:min((batch_index + 1) * validation_numb, len(x))]
         batch_y = y[batch_index * validation_numb:min((batch_index + 1) * validation_numb, len(y))]
+
         if batch_index is seed:
             x_val.extend(batch_x)
             y_val.extend(batch_y)
@@ -151,18 +167,25 @@ def _save(features, labels, path):
 
 def train_prep(test_numb=200):
     """Get preprocessed train data"""
+
+    # if file does not exist, preprocess and save it
     if not (os.path.exists(PREP_TRAIN_DATA)):
         x_train, y_train = _load_train_data()
-        pca = _pca(1024)
+
+        # use PCA for reducing dimensions
+        pca = _pca(N_COMPONENTS)
         x_train = pca.transform(x_train)
+
         x_train = _normalize(x_train)
         y_train = np.array([y_train]).transpose(1, 0)
 
         x_train, y_train, x_test, y_test = _split_data(x_train, y_train, test_numb)
 
+        # save data to csv files
         _save(x_train, y_train, PREP_TRAIN_DATA)
         _save(x_test, y_test, PREP_TEST_DATA)
 
+    # if file exists, load it
     else:
         with open(PREP_TRAIN_DATA, mode='rb') as file:
             train_dataset = pickle.load(file)
@@ -178,15 +201,20 @@ def train_prep(test_numb=200):
 
 def test_prepr():
     """Get preprocessed test data"""
+
+    # if file does not exist, preprocess and save it
     if not (os.path.exists(PREP_SUBM_DATA)):
+        # load data
         x_test, ids = _load_subm_data()
-        print(x_test.shape)
-        pca = _pca(1024)
+
+        # use PCA for reducing dimension
+        pca = _pca(N_COMPONENTS)
         x_test = pca.transform(x_test)
         x_test = _normalize(x_test)
 
         _save(x_test, ids, PREP_SUBM_DATA)
 
+    # if file exists, load it
     else:
         with open(PREP_SUBM_DATA, mode='rb') as file:
             subm_dataset = pickle.load(file)
@@ -196,5 +224,3 @@ def test_prepr():
     print([i.shape for i in [x_test, ids]])
 
     return x_test, ids
-
-
