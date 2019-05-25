@@ -1,13 +1,10 @@
 import tensorflow as tf
 
+from constants import MODELS_DIR, PLOTS_DIR, NAME_PREFIX, BATCH_SIZE, TEST_NUMB, VALIDATION_NUMB
 from net import get_networks_options
 from oop import NeuralNet
 from preprocessing import train_prep, val_batch
-from utils import loss_plot, accuracy_plot
-
-MODELS_DIR = 'models/'
-PLOTS_DIR = 'plots/'
-NAME_PREFIX = 'model_'
+from utils import loss_plot, accuracy_plot, check_dir
 
 
 def train(options, features_count, labels_count, batch_size, validation_numb, x, y):
@@ -60,18 +57,19 @@ def train(options, features_count, labels_count, batch_size, validation_numb, x,
 
 
 if __name__ == "__main__":
-    VALIDATION_NUMB = 100
-    TEST_NUMB = 100
-    BATCH_SIZE = 32
-
     # load data
     x_train, y_train, x_test, y_test = train_prep(TEST_NUMB)
+
+    # check model dir
+    check_dir(MODELS_DIR)
+
+    # check plots dir
+    check_dir(PLOTS_DIR)
 
     features_count = x_train.shape[1]
     labels_count = y_train.shape[1]
 
+    # get network options
     options = get_networks_options()
 
     train(options, features_count, labels_count, BATCH_SIZE, VALIDATION_NUMB, x_train, y_train)
-
-

@@ -2,14 +2,10 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 
+from constants import RESULT_FILE, MODELS_DIR, NAME_PREFIX
 from net import get_networks_options
 from oop import NeuralNet
 from preprocessing import test_prepr
-
-MODELS_DIR = 'models/'
-NAME_PREFIX = 'model_'
-
-RESULT_FILE = 'data/results.csv'
 
 
 def save_predictions(ids, results):

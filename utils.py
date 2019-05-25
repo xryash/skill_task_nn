@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import os
 
 
 def loss_plot(train_loss, test_loss, plot_path):
@@ -25,3 +26,6 @@ def accuracy_plot(train_accuracy, test_accuracy, plot_path):
     plt.savefig(str(plot_path))
 
 
+def check_dir(dir):
+    if not os.path.exists(dir):
+        os.makedirs(dir)

@@ -4,11 +4,11 @@ from net import get_networks_options
 from oop import NeuralNet
 from preprocessing import train_prep
 
+from constants import MODELS_DIR, NAME_PREFIX
 from sklearn.metrics import roc_auc_score, accuracy_score
 import numpy as np
 
-MODELS_DIR = 'models/'
-NAME_PREFIX = 'model_'
+
 
 
 def local_val(options, x_test, y_test):

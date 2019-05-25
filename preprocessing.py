@@ -5,14 +5,7 @@ import pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
 
-TRAIN_DATA = 'data/train.csv'
-SUBM_DATA = 'data/test.csv'
-
-PREP_TRAIN_DATA = 'data/prep_train'
-PREP_TEST_DATA = 'data/prep_test'
-PREP_SUBM_DATA = 'data/prep_subm_test'
-
-N_COMPONENTS = 256
+from constants import TRAIN_DATA, SUBM_DATA, PREP_TRAIN_DATA, PREP_TEST_DATA, PREP_SUBM_DATA, N_COMPONENTS
 
 
 def _max(data):
