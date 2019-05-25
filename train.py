@@ -8,28 +8,35 @@ from utils import loss_plot, accuracy_plot, check_dir
 
 
 def train(options, features_count, labels_count, batch_size, validation_numb, x, y):
+    """Training ensemble function"""
     for option in options:
         if option['skip']:
             continue
-
+        
+        # init hyperparams from a dict
         nn_numb = option['number']
         epochs = option['epochs']
         learning_rate = option['learning_rate']
         dropout_rate = option['dropout_rate']
 
         print('Neural network number' + str(nn_numb) + '\n')
-
+        
+        # split training data
         x_train, y_train, x_val, y_val = val_batch(x, y, validation_numb, seed=nn_numb)
 
         # remove previous weights, bias, inputs, etc..
         tf.reset_default_graph()
 
+        # init tensorflow graph
         with tf.Graph().as_default() as graph:
             init = tf.global_variables_initializer()
             network = NeuralNet(dropout_rate, features_count, labels_count, epochs, batch_size, learning_rate)
-
+        
+        # start tf session
         with tf.Session(graph=graph) as session:
             session.run(init)
+            
+            # start training with gpu device
             with tf.device('/device:GPU:0'):
                 print('Training....\n')
                 train_loss, test_loss, train_accuracy, test_accuracy = network.training(x_train, y_train, x_val, y_val)
